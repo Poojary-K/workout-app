@@ -12,7 +12,7 @@
       <h1>{{ title }}</h1>
       <p class="date">Track your workouts across multiple days</p>
     </header>
-  
+
     <section class="add-workout">
       <h2>Add New Workout</h2>
       <form (ngSubmit)="addWorkout()" #workoutForm="ngForm">
@@ -28,35 +28,48 @@
             class="form-control"
           >
         </div>
-  
-        <div class="form-row">
-          <div class="form-group">
-            <label for="sets">Sets:</label>
-            <input
-              type="number"
-              id="sets"
-              name="sets"
-              [(ngModel)]="newWorkout.sets"
-              required
-              min="1"
-              class="form-control"
-            >
+
+        <div class="sets-container">
+          <h3>Sets & Reps</h3>
+          <div class="form-group set-count-control">
+            <label for="setCount">Number of Sets:</label>
+            <div class="input-with-buttons">
+              <button type="button" class="btn btn-small" (click)="newWorkout.setCount = newWorkout.setCount - 1; updateNewWorkoutSets()" [disabled]="newWorkout.setCount <= 1">-</button>
+              <input
+                type="number"
+                id="setCount"
+                name="setCount"
+                [(ngModel)]="newWorkout.setCount"
+                required
+                min="1"
+                class="form-control count-input"
+                (change)="updateNewWorkoutSets()"
+              >
+              <button type="button" class="btn btn-small" (click)="newWorkout.setCount = newWorkout.setCount + 1; updateNewWorkoutSets()">+</button>
+            </div>
           </div>
-  
-          <div class="form-group">
-            <label for="reps">Reps:</label>
-            <input
-              type="number"
-              id="reps"
-              name="reps"
-              [(ngModel)]="newWorkout.reps"
-              required
-              min="1"
-              class="form-control"
-            >
+
+          <div class="sets-list">
+            <div *ngFor="let set of newWorkout.sets; let i = index" class="set-item">
+              <div class="set-header">
+                <span>Set {{i + 1}}</span>
+              </div>
+              <div class="form-group">
+                <label [for]="'reps-' + i">Reps:</label>
+                <input
+                  type="number"
+                  [id]="'reps-' + i"
+                  [name]="'reps-' + i"
+                  [(ngModel)]="set.reps"
+                  required
+                  min="1"
+                  class="form-control"
+                >
+              </div>
+            </div>
           </div>
-      </div>
-  
+        </div>
+
         <div class="form-group">
           <label for="date">Date:</label>
           <div class="date-selection">
@@ -74,37 +87,43 @@
             </div>
           </div>
         </div>
-  
+
         <button type="submit" [disabled]="!workoutForm.form.valid" class="btn btn-primary">
           Add Workout
         </button>
       </form>
     </section>
-  
+
     <section class="workout-list">
       <h2>Workout History</h2>
-  
+
       <div *ngIf="workouts.length === 0" class="no-workouts">
         <p>No workouts added yet. Add your first workout above!</p>
       </div>
-  
+
       <div *ngIf="workouts.length > 0" class="workouts">
         <!-- Group by date -->
         <div *ngFor="let group of workoutGroups" class="date-group">
           <h3 class="date-heading">{{ group.dateLabel }}</h3>
-  
+
           <div *ngFor="let workout of group.workouts" class="workout-item">
             <!-- View Mode -->
             <div *ngIf="editingWorkout?.id !== workout.id" class="workout-details">
               <h3>{{ workout.name }}</h3>
-              <p>{{ workout.sets }} sets × {{ workout.reps }} reps</p>
-  
+              <p>{{ getTotalSets(workout) }} sets</p>
+
+              <div class="sets-summary">
+                <div *ngFor="let set of workout.sets; let i = index" class="set-summary">
+                  <span>Set {{i + 1}}: {{set.reps}} reps</span>
+                </div>
+              </div>
+
               <div class="actions">
                 <button (click)="startEdit(workout)" class="btn btn-edit">Edit</button>
                 <button (click)="deleteWorkout(workout.id)" class="btn btn-delete">Delete</button>
               </div>
             </div>
-  
+
             <!-- Edit Mode -->
             <div *ngIf="editingWorkout?.id === workout.id" class="workout-edit">
               <form (ngSubmit)="saveEdit()" #editForm="ngForm">
@@ -119,35 +138,37 @@
                     class="form-control"
                   >
                 </div>
-  
-                <div class="form-row">
-                  <div class="form-group">
-                    <label for="edit-sets">Sets:</label>
-                    <input
-                      type="number"
-                      id="edit-sets"
-                      name="edit-sets"
-                      [(ngModel)]="editingWorkout!.sets"
-                      required
-                      min="1"
-                      class="form-control"
-                    >
+
+                <div class="sets-container">
+                  <h3>Sets & Reps</h3>
+                  <div class="sets-controls">
+                    <button type="button" class="btn btn-small" (click)="addSetToEditingWorkout()">Add Set</button>
                   </div>
-  
-                  <div class="form-group">
-                    <label for="edit-reps">Reps:</label>
-                    <input
-                      type="number"
-                      id="edit-reps"
-                      name="edit-reps"
-                      [(ngModel)]="editingWorkout!.reps"
-                      required
-                      min="1"
-                      class="form-control"
-                    >
+
+                  <div class="sets-list">
+                    <div *ngFor="let set of editingWorkout!.sets; let i = index" class="set-item">
+                      <div class="set-header">
+                        <span>Set {{i + 1}}</span>
+                        <button type="button" class="btn btn-small btn-remove" (click)="removeSetFromEditingWorkout(i)" [disabled]="editingWorkout!.sets.length <= 1">
+                          Remove
+                        </button>
+                      </div>
+                      <div class="form-group">
+                        <label [for]="'edit-reps-' + i">Reps:</label>
+                        <input
+                          type="number"
+                          [id]="'edit-reps-' + i"
+                          [name]="'edit-reps-' + i"
+                          [(ngModel)]="set.reps"
+                          required
+                          min="1"
+                          class="form-control"
+                        >
+                      </div>
+                    </div>
                   </div>
                 </div>
-  
+
                 <div class="form-group">
                   <label for="edit-date">Date:</label>
                   <input
@@ -159,7 +180,7 @@
                     class="form-control"
                   >
                 </div>
-  
+
                 <div class="edit-actions">
                   <button type="submit" [disabled]="!editForm.form.valid" class="btn btn-primary">Save</button>
                   <button type="button" (click)="cancelEdit()" class="btn btn-secondary">Cancel</button>
@@ -171,7 +192,7 @@
       </div>
     </section>
     </div>
-  
+
   <!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
   <!-- * * * * * * * * * * * The content above * * * * * * * * * * * * -->
   <!-- * * * * * * * * * * is only a placeholder * * * * * * * * * * * -->
@@ -179,6 +200,5 @@
   <!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
   <!-- * * * * * * * * * * End of Placeholder  * * * * * * * * * * * * -->
   <!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
-  
-  
-  
+
+

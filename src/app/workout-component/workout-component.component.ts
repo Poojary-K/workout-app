@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { WorkoutService, Workout, DateUtilsService } from '../services';
+import { WorkoutService, Workout, DateUtilsService, WorkoutSet } from '../services';
 
 interface WorkoutGroup {
   dateLabel: string;
@@ -24,9 +24,10 @@ export class WorkoutComponentComponent implements OnInit {
 
   newWorkout = {
     name: '',
-    sets: 3,
-    reps: 10,
-    date: ''
+    setCount: 3, // Temporary for UI input
+    reps: 10,    // Temporary default reps value
+    date: '',
+    sets: [] as WorkoutSet[] // Will hold the actual sets
   };
 
   constructor(
@@ -35,6 +36,61 @@ export class WorkoutComponentComponent implements OnInit {
   ) {
     this.today = this.dateUtils.getTodayDate();
     this.newWorkout.date = this.today;
+    this.initNewWorkoutSets();
+  }
+
+  // Initialize sets for new workout
+  initNewWorkoutSets(): void {
+    this.newWorkout.sets = [];
+    for (let i = 0; i < this.newWorkout.setCount; i++) {
+      this.addSetToNewWorkout();
+    }
+  }
+
+  // Add a set to the new workout
+  addSetToNewWorkout(): void {
+    this.newWorkout.sets.push({
+      id: 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+      reps: this.newWorkout.reps
+    });
+  }
+
+  // Remove a set from the new workout
+  removeSetFromNewWorkout(index: number): void {
+    this.newWorkout.sets.splice(index, 1);
+  }
+
+  // Add a set to the editing workout
+  addSetToEditingWorkout(): void {
+    if (this.editingWorkout) {
+      this.editingWorkout.sets.push({
+        id: 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        reps: 10 // Default reps value
+      });
+    }
+  }
+
+  // Remove a set from the editing workout
+  removeSetFromEditingWorkout(index: number): void {
+    if (this.editingWorkout) {
+      this.editingWorkout.sets.splice(index, 1);
+    }
+  }
+
+  // Update new workout sets when setCount changes
+  updateNewWorkoutSets(): void {
+    const currentSetsCount = this.newWorkout.sets.length;
+    const targetCount = this.newWorkout.setCount;
+
+    if (currentSetsCount < targetCount) {
+      // Add sets
+      for (let i = currentSetsCount; i < targetCount; i++) {
+        this.addSetToNewWorkout();
+      }
+    } else if (currentSetsCount > targetCount) {
+      // Remove sets
+      this.newWorkout.sets = this.newWorkout.sets.slice(0, targetCount);
+    }
   }
 
   ngOnInit(): void {
@@ -75,26 +131,38 @@ export class WorkoutComponentComponent implements OnInit {
       return; // Don't add workouts without a name
     }
 
-    this.workoutService.addWorkout(
-      this.newWorkout.name,
-      this.newWorkout.sets,
-      this.newWorkout.reps,
-      this.newWorkout.date
-    );
+    // Create a workout with the actual sets and their rep values
+    const workout: Workout = {
+      id: 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+      name: this.newWorkout.name,
+      sets: this.newWorkout.sets.map(set => ({
+        id: 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        reps: set.reps
+      })),
+      date: this.newWorkout.date
+    };
+
+    // Add the workout with custom sets
+    this.workoutService.createCustomWorkout(workout);
 
     // Reset form but keep the selected date
     const selectedDate = this.newWorkout.date;
     this.newWorkout = {
       name: '',
-      sets: 3,
+      setCount: 3,
       reps: 10,
-      date: selectedDate
+      date: selectedDate,
+      sets: []
     };
+    this.initNewWorkoutSets();
   }
 
   startEdit(workout: Workout): void {
-    // Create a copy to avoid direct binding
-    this.editingWorkout = { ...workout };
+    // Create a deep copy to avoid direct binding
+    this.editingWorkout = {
+      ...workout,
+      sets: workout.sets.map(set => ({ ...set }))
+    };
   }
 
   cancelEdit(): void {
@@ -122,5 +190,15 @@ export class WorkoutComponentComponent implements OnInit {
   // Set workout date to yesterday
   setDateToYesterday(): void {
     this.newWorkout.date = this.dateUtils.getYesterdayDate();
+  }
+
+  // Get total sets for a workout
+  getTotalSets(workout: Workout): number {
+    return workout.sets.length;
+  }
+
+  // Calculate total reps across all sets
+  getTotalReps(workout: Workout): number {
+    return workout.sets.reduce((total, set) => total + set.reps, 0);
   }
 }
