@@ -16,7 +16,7 @@ export interface BaseModel {
  */
 @Injectable()
 export abstract class BaseService<T extends BaseModel> {
-  protected abstract storageKey: string;
+  protected  storageKey: string = 'workout-tracker-data';
   protected itemsSubject: BehaviorSubject<T[]> = new BehaviorSubject<T[]>([]);
   public items$: Observable<T[]> = this.itemsSubject.asObservable();
 
