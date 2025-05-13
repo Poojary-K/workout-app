@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { Observable } from 'rxjs';
 import { DateUtilsService } from './date-utils.service';
+import { StateService, STORAGE_KEY } from './state.service';
 
 /**
  * BaseModel interface that all models should implement
@@ -11,78 +12,60 @@ export interface BaseModel {
 }
 
 /**
- * Abstract base service for handling localStorage persistence
+ * Abstract base service for business logic
  * @template T - The data model type that extends BaseModel
  */
 @Injectable()
 export abstract class BaseService<T extends BaseModel> {
-  protected  storageKey: string = 'workout-tracker-data';
-  protected itemsSubject: BehaviorSubject<T[]> = new BehaviorSubject<T[]>([]);
-  public items$: Observable<T[]> = this.itemsSubject.asObservable();
+  protected storageKey: string = 'workout-tracker-data';
 
-  constructor(protected dateUtils: DateUtilsService) {
-    this.loadFromLocalStorage();
-  }
-
-  /**
-   * Load data from localStorage
-   */
-  protected loadFromLocalStorage(): void {
-    const storedData = localStorage.getItem(this.storageKey);
-    if (storedData) {
-      const items = JSON.parse(storedData) as T[];
-      this.itemsSubject.next(this.sortItems(items));
-    } else {
-      this.itemsSubject.next([]);
-    }
-  }
+  constructor(
+    protected dateUtils: DateUtilsService,
+    protected stateService: StateService<T>
+  ) {}
 
   /**
-   * Save data to localStorage
-   */
-  protected saveToLocalStorage(items: T[]): void {
-    localStorage.setItem(this.storageKey, JSON.stringify(items));
-    // After saving, reload the sorted data
-    this.loadFromLocalStorage();
-  }
-
-  /**
-   * Sort items before storing/displaying (to be implemented by child classes)
+   * Sort items before displaying (to be implemented by child classes)
    */
   protected abstract sortItems(items: T[]): T[];
+
+  /**
+   * Get all items (sorted)
+   */
+  public getItems(): Observable<T[]> {
+    // Subscribe to the state service's items$ and apply sorting
+    return this.stateService.getItems();
+  }
+
+  /**
+   * Process items with sorting before display
+   */
+  protected processSortedItems(): void {
+    this.stateService.setItems(items => this.sortItems([...items]));
+  }
 
   /**
    * Create a new item
    */
   protected createItem(item: T): void {
-    const currentItems = this.itemsSubject.getValue();
-    const updatedItems = [...currentItems, item];
-    this.saveToLocalStorage(updatedItems);
+    this.stateService.addItem(item);
+    this.processSortedItems();
   }
 
   /**
    * Update an existing item
    */
   protected updateItem(item: T): void {
-    const currentItems = this.itemsSubject.getValue();
-    const updatedItems = currentItems.map(i => i.id === item.id ? item : i);
-    this.saveToLocalStorage(updatedItems);
+    this.stateService.updateItem(item);
+    this.processSortedItems();
   }
 
   /**
    * Delete an item
    */
   protected deleteItem(id: string): void {
-    const currentItems = this.itemsSubject.getValue();
-    const updatedItems = currentItems.filter(item => item.id !== id);
-    this.saveToLocalStorage(updatedItems);
-  }
-
-  /**
-   * Get all items
-   */
-  public getItems(): Observable<T[]> {
-    return this.items$;
+    this.stateService.deleteItem(id);
+    this.processSortedItems();
   }
 
   /**

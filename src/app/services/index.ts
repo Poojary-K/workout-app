@@ -1,6 +1,7 @@
 // Base services
 export * from './base/base.service';
 export * from './base/date-utils.service';
+export * from './base/state.service';
 
 // Workout services and models
 export * from './workout/workout.model';

@@ -1,16 +1,20 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Inject } from '@angular/core';
 import { BaseService } from '../base/base.service';
 import { DateUtilsService } from '../base/date-utils.service';
+import { StateService, STORAGE_KEY } from '../base/state.service';
 import { Workout, WorkoutSet } from './workout.model';
 
 @Injectable({
   providedIn: 'root'
 })
 export class WorkoutService extends BaseService<Workout> {
-  protected override storageKey = 'workout-tracker-data';
-
-  constructor(protected override dateUtils: DateUtilsService) {
-    super(dateUtils);
+  constructor(
+    protected override dateUtils: DateUtilsService,
+    @Inject(STORAGE_KEY) stateServiceStorageKey: string
+  ) {
+    // Create a new StateService with the storage key
+    const stateService = new StateService<Workout>(stateServiceStorageKey || 'workout-tracker-data');
+    super(dateUtils, stateService);
     this.migrateWorkoutsToNewFormat();
   }
 
@@ -27,7 +31,7 @@ export class WorkoutService extends BaseService<Workout> {
    * Migrate old workout format to new format with sets
    */
   private migrateWorkoutsToNewFormat(): void {
-    const currentItems = this.itemsSubject.getValue();
+    const currentItems = this.stateService.getItemsSnapshot();
     let needsMigration = false;
 
     const migratedItems = currentItems.map(workout => {
@@ -52,7 +56,7 @@ export class WorkoutService extends BaseService<Workout> {
 
     // Save migrated data if needed
     if (needsMigration) {
-      this.saveToLocalStorage(migratedItems);
+      this.stateService.setItems(() => migratedItems);
     }
   }
 
